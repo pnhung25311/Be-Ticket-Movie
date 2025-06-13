@@ -1,8 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 require('dns').setDefaultResultOrder('ipv4first');
-import fetch from 'node-fetch';
-(globalThis as any).fetch = fetch;
+// import fetch from 'node-fetch';
+// (globalThis as any).fetch = fetch;
 
 
 
