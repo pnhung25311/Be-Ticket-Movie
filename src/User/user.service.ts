@@ -1,3 +1,4 @@
+import { AuthService } from './../auth/auth.service';
 import { Injectable } from '@nestjs/common';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { SupabaseService } from 'src/database/supabase.service';
@@ -6,7 +7,10 @@ import { LoginUserDto } from './dto/login-user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly authService: AuthService,
+  ) {}
   private customer = new Customer();
 
   async RegiterUser(dto: RegisterUserDto) {
@@ -63,18 +67,41 @@ export class UsersService {
         .select('*')
         .eq('email', dto.email)
         .single();
+      // console.log(data);
+
+      if (!data || error) {
+        console.error('Supabase error detail:', error);
+        return {
+          status: 0,
+          message: 'Incorrect email or password',
+        };
+      }
+
+      const payload = { user_id: data.user_id, role: data.role };
+
+      const token = this.authService.generateToken(payload);
+      const refreshToken = this.authService.refreshToken(payload);
+      const hashedRefreshToken = await this.customer.hashPassword(refreshToken);
+
+      await this.setCurrentRefreshToken(data.user_id, hashedRefreshToken + '');
 
       const ReturnData = (await this.customer.comparePassword(
         dto.password,
         data.password_hash,
       ))
-        ? { status: 1, message: 'Login successfully', data: data }
+        ? {
+            status: 1,
+            message: 'Login successfully',
+            data: data,
+            token: token,
+            refreshToken: refreshToken,
+          }
         : { status: 0, message: 'Incorrect email or password' };
 
-      if (error) {
-        console.error('Supabase error detail:', error);
-        throw new Error(error.message);
-      }
+      // if (error) {
+      //   console.error('Supabase error detail:', error);
+      //   throw new Error(error.message);
+      // }
       return ReturnData;
     } catch (err) {
       console.error('Error in LoginUser:', err);
@@ -83,6 +110,22 @@ export class UsersService {
         message: 'Incorrect email or password',
         detail: err.message || err,
       };
+    }
+  }
+  
+  async setCurrentRefreshToken(userId: string, refreshToken: string) {
+    console.log('Updating refresh token for user:', userId);
+    console.log('New hashed refresh token:', refreshToken);
+
+    const { error } = await this.supabaseService
+      .getClient()
+      .from('users')
+      .update({ hashedRefreshToken: refreshToken })
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error updating refresh token:', error);
+      throw new Error(error.message);
     }
   }
 }

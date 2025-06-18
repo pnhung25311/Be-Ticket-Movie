@@ -11,6 +11,8 @@ import { RegisterUserDto } from './dto/register-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './user.service';
 import { LoginUserDto } from './dto/login-user.dto';
+import { AuthService } from '../auth/auth.service'
+
 
 @Controller('user')
 export class UserController {
